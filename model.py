@@ -1,15 +1,11 @@
 from __future__ import division
 import os
 import time
-import math
 from glob import glob
-import tensorflow as tf
-import numpy as np
-from six.moves import xrange
 
-from rfpg import ops
-from rfpg import utils
-from rfpg import pre_process as pp
+from ops import *
+from utils import *
+from pre_process import *
 
 
 def conv_out_size_same(size, stride):
@@ -48,39 +44,38 @@ class DCGAN(object):
         self.gen_fc_size = gen_fc_size
         self.disc_fc_size = disc_fc_size
         # batch normalization: deals with poor initialization helps gradient flow
-        self.d_bn1 = ops.batch_norm(name='d_bn1')
-        self.d_bn2 = ops.batch_norm(name='d_bn2')
-        self.d_bn3 = ops.batch_norm(name='d_bn3')
-        self.g_bn0 = ops.batch_norm(name='g_bn0')
-        self.g_bn1 = ops.batch_norm(name='g_bn1')
-        self.g_bn2 = ops.batch_norm(name='g_bn2')
-        self.g_bn3 = ops.batch_norm(name='g_bn3')
+        self.d_bn1 = batch_norm(name='d_bn1')
+        self.d_bn2 = batch_norm(name='d_bn2')
+        self.d_bn3 = batch_norm(name='d_bn3')
+        self.g_bn0 = batch_norm(name='g_bn0')
+        self.g_bn1 = batch_norm(name='g_bn1')
+        self.g_bn2 = batch_norm(name='g_bn2')
+        self.g_bn3 = batch_norm(name='g_bn3')
         # IO
         self.dataset_name = dataset_name
         self.input_fname_pattern = input_fname_pattern
         self.checkpoint_dir = checkpoint_dir
         self.data_dir = data_dir
         # Read dataset files
-        self.read_dataset_files()
+        # self.read_dataset_files()
+
+        # we always have grayscale images
+        self.c_dim = 1
+        self.grayscale = True
+
         # Build model
         self.build_model()
 
     def read_dataset_files(self):
-        # Read dataset files
         data_path = os.path.join(self.data_dir, self.dataset_name, self.input_fname_pattern)
         self.data = glob(data_path)
+
         if len(self.data) == 0:
             raise Exception("[!] No data found in '" + data_path + "'")
-        np.random.shuffle(self.data)
-        imreadImg = pp.imread(self.data[0])
-        if len(imreadImg.shape) >= 3:  # check if image is a non-grayscale image by checking channel number
-            self.c_dim = pp.imread(self.data[0]).shape[-1]
-        else:
-            self.c_dim = 1
+
         if len(self.data) < self.batch_size:
             raise Exception("[!] Entire dataset size is less than the configured batch_size")
 
-        self.grayscale = (self.c_dim == 1)
 
     def pre_process(self):
         if self.crop:
@@ -131,19 +126,19 @@ class DCGAN(object):
         self.saver = tf.train.Saver()
 
     def add_summary(self):
-        self.d_loss_real_sum = ops.scalar_summary("d_loss_real", self.d_loss_real)
-        self.d_loss_fake_sum = ops.scalar_summary("d_loss_fake", self.d_loss_fake)
-        self.g_loss_sum = ops.scalar_summary("g_loss", self.g_loss)
-        self.d_loss_sum = ops.scalar_summary("d_loss", self.d_loss)
-        self.d_sum = ops.histogram_summary("d", self.D)
-        self.z_sum = ops.histogram_summary("z", self.z)
-        self.d__sum = ops.histogram_summary("d_", self.D_)
-        self.G_sum = ops.image_summary("G", self.G)
-        self.g_sum = ops.merge_summary([self.z_sum, self.d__sum,
-                                    self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
-        self.d_sum = ops.merge_summary(
+        self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
+        self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
+        self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
+        self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
+        self.d_sum = histogram_summary("d", self.D)
+        self.z_sum = histogram_summary("z", self.z)
+        self.d__sum = histogram_summary("d_", self.D_)
+        self.G_sum = image_summary("G", self.G)
+        self.g_sum = merge_summary([self.z_sum, self.d__sum,
+                                        self.G_sum, self.d_loss_fake_sum, self.g_loss_sum])
+        self.d_sum = merge_summary(
             [self.z_sum, self.d_sum, self.d_loss_real_sum, self.d_loss_sum])
-        self.writer = ops.SummaryWriter("./logs", self.sess.graph)
+        self.writer = SummaryWriter("./logs", self.sess.graph)
 
     def train(self, config):
         d_optim, g_optim = self.create_optimizer(config)
@@ -218,7 +213,7 @@ class DCGAN(object):
                         self.inputs: sample_inputs,
                     },
                 )
-                utils.save_images(samples, utils.image_manifold_size(samples.shape[0]),
+                save_images(samples, image_manifold_size(samples.shape[0]),
                                   './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
                 print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
             except:
@@ -255,11 +250,11 @@ class DCGAN(object):
             if reuse:
                 scope.reuse_variables()
 
-            h0 = ops.lrelu(ops.conv2d(image, self.disc_input_layer_depth, name='d_h0_conv'))
-            h1 = ops.lrelu(self.d_bn1(ops.conv2d(h0, self.disc_input_layer_depth * 2, name='d_h1_conv')))
-            h2 = ops.lrelu(self.d_bn2(ops.conv2d(h1, self.disc_input_layer_depth * 4, name='d_h2_conv')))
-            h3 = ops.lrelu(self.d_bn3(ops.conv2d(h2, self.disc_input_layer_depth * 8, name='d_h3_conv')))
-            h4 = ops.linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h4_lin')
+            h0 = lrelu(conv2d(image, self.disc_input_layer_depth, name='d_h0_conv'))
+            h1 = lrelu(self.d_bn1(conv2d(h0, self.disc_input_layer_depth * 2, name='d_h1_conv')))
+            h2 = lrelu(self.d_bn2(conv2d(h1, self.disc_input_layer_depth * 4, name='d_h2_conv')))
+            h3 = lrelu(self.d_bn3(conv2d(h2, self.disc_input_layer_depth * 8, name='d_h3_conv')))
+            h4 = linear(tf.reshape(h3, [self.batch_size, -1]), 1, 'd_h4_lin')
 
             return tf.nn.sigmoid(h4), h4
 
@@ -272,26 +267,26 @@ class DCGAN(object):
             s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
 
             # project `z` and reshape
-            self.z_, self.h0_w, self.h0_b = ops.linear(
+            self.z_, self.h0_w, self.h0_b = linear(
                 z, self.gen_input_layer_depth * 8 * s_h16 * s_w16, 'g_h0_lin', with_w=True)
 
             self.h0 = tf.reshape(
                 self.z_, [-1, s_h16, s_w16, self.gen_input_layer_depth * 8])
             h0 = tf.nn.relu(self.g_bn0(self.h0))
 
-            self.h1, self.h1_w, self.h1_b = ops.deconv2d(
+            self.h1, self.h1_w, self.h1_b = deconv2d(
                 h0, [self.batch_size, s_h8, s_w8, self.gen_input_layer_depth * 4], name='g_h1', with_w=True)
             h1 = tf.nn.relu(self.g_bn1(self.h1))
 
-            h2, self.h2_w, self.h2_b = ops.deconv2d(
+            h2, self.h2_w, self.h2_b = deconv2d(
                 h1, [self.batch_size, s_h4, s_w4, self.gen_input_layer_depth * 2], name='g_h2', with_w=True)
             h2 = tf.nn.relu(self.g_bn2(h2))
 
-            h3, self.h3_w, self.h3_b = ops.deconv2d(
+            h3, self.h3_w, self.h3_b = deconv2d(
                 h2, [self.batch_size, s_h2, s_w2, self.gen_input_layer_depth * 1], name='g_h3', with_w=True)
             h3 = tf.nn.relu(self.g_bn3(h3))
 
-            h4, self.h4_w, self.h4_b = ops.deconv2d(
+            h4, self.h4_w, self.h4_b = deconv2d(
                 h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4', with_w=True)
 
             return tf.nn.tanh(h4)
@@ -308,20 +303,20 @@ class DCGAN(object):
 
             # project `z` and reshape
             h0 = tf.reshape(
-                ops.linear(z, self.gen_input_layer_depth * 8 * s_h16 * s_w16, 'g_h0_lin'),
+                linear(z, self.gen_input_layer_depth * 8 * s_h16 * s_w16, 'g_h0_lin'),
                 [-1, s_h16, s_w16, self.gen_input_layer_depth * 8])
             h0 = tf.nn.relu(self.g_bn0(h0, train=False))
 
-            h1 = ops.deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gen_input_layer_depth * 4], name='g_h1')
+            h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gen_input_layer_depth * 4], name='g_h1')
             h1 = tf.nn.relu(self.g_bn1(h1, train=False))
 
-            h2 = ops.deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gen_input_layer_depth * 2], name='g_h2')
+            h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gen_input_layer_depth * 2], name='g_h2')
             h2 = tf.nn.relu(self.g_bn2(h2, train=False))
 
-            h3 = ops.deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gen_input_layer_depth * 1], name='g_h3')
+            h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gen_input_layer_depth * 1], name='g_h3')
             h3 = tf.nn.relu(self.g_bn3(h3, train=False))
 
-            h4 = ops.deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
+            h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
 
             return tf.nn.tanh(h4)
 
@@ -359,3 +354,8 @@ class DCGAN(object):
             print(" [*] Failed to find a checkpoint")
             print(" [!] Load failed...")
             return 0
+
+    @staticmethod
+    def default():
+        return 3
+

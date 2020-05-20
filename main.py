@@ -11,9 +11,9 @@ flags = tf.app.flags
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 flags.DEFINE_string("data_dir", "./data", "Root directory of dataset [data]")
 flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
-flags.DEFINE_string("summary_steps", 100, "write to summery file each summary_steps steps")
-flags.DEFINE_string("eval_steps", 100, "run evaluation each eval_steps steps")
-flags.DEFINE_string("save_ckpt_steps", 100, "save checkpoint file each save_ckpt_steps steps")
+flags.DEFINE_integer("summary_steps", 100, "write to summery file each summary_steps steps")
+flags.DEFINE_integer("eval_steps", 100, "run evaluation each eval_steps steps")
+flags.DEFINE_integer("save_ckpt_steps", 100, "save checkpoint file each save_ckpt_steps steps")
 # Data
 flags.DEFINE_string("dataset", "nist14", "The name of dataset [nist14, FVC]")
 flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
@@ -27,7 +27,7 @@ flags.DEFINE_boolean("crop", True, "True for training, False for testing [False]
 # Mode
 flags.DEFINE_boolean("train", False, "True for training, False for testing [False]")
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_integer("generate_test_images", 100, "Number of images to generate during test. [100]")
+flags.DEFINE_integer("generate_test_images", 300, "Number of images to generate during test. [100]")
 # Hyper-params
 flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
@@ -67,7 +67,6 @@ def main(_):
             input_fname_pattern=FLAGS.input_fname_pattern,
             crop=FLAGS.crop,
             checkpoint_dir=FLAGS.checkpoint_dir,
-            sample_dir=FLAGS.sample_dir,
             data_dir=FLAGS.data_dir)
 
         show_all_variables()

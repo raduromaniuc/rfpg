@@ -1,12 +1,12 @@
 import scipy.misc
 import numpy as np
-from rfpg import utils
+from utils import imread
 
 
 def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               crop=True, grayscale=False):
-    image = utils.imread(image_path, grayscale)
+    image = imread(image_path, grayscale)
     return transform(image, input_height, input_width,
                      resize_height, resize_width, crop)
 

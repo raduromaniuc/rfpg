@@ -3,17 +3,13 @@ Some codes from https://github.com/Newmu/dcgan_code
 """
 from __future__ import division
 import math
-import json
-import random
 import pprint
 import scipy.misc
 import numpy as np
-from time import gmtime, strftime
 from six.moves import xrange
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import matplotlib.pyplot as plt
 
 pp = pprint.PrettyPrinter()
 
@@ -78,9 +74,9 @@ def imsave(images, size, path):
 
 
 def visualize(sess, dcgan, config):
-    for idx in xrange(config.generate_test_images):
+    for idx in xrange(config['generate_test_images']):
         print(" [*] %d" % idx)
-        z_sample = np.random.uniform(-1, 1, size=(config.batch_size, dcgan.z_dim))
+        z_sample = np.random.uniform(-1, 1, size=(config['batch_size'], dcgan.z_dim))
         samples = sess.run(dcgan.sampler, feed_dict={dcgan.z: z_sample})
         save_images_onebyone(samples, './samples/test_{}'.format(idx))
 
