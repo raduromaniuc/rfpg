@@ -11,4 +11,4 @@ with tf.Session() as sess:
     )
 
     dcgan.load('checkpoint')
-    visualize(sess, dcgan, dict(generate_test_images= 500, batch_size= 4, z_dim=1))
+    visualize(sess, dcgan, dict(generate_test_images= 1000, batch_size= 4, z_dim=1))
